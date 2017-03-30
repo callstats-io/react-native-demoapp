@@ -1,5 +1,12 @@
+React native webTC demo app with callstats.js integration
+
+This app is based on 
+
 # RCTWebRTCDemo
 Demo for https://github.com/oney/react-native-webrtc
+
+
+
 ## Usage
 - Clone the repository, run `npm install`.  
 - For iOS, run the project on Xcode.  
