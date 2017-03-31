@@ -25,23 +25,17 @@ createTokenGeneratorTimer = function (forcenew, callback) {
 };
 
 
-var tokenGenerator = (function () {
-  var cached = null;
-  return function(forcenew, callback) {
-    if (!forcenew && cached !== null) {
-      return callback(null, cached);
+var tokenGenerator = function(forcenew, callback) {
+  socket1.emit('generateToken', localUserID, function (err, token) {
+    if (err) {
+      console.log('Token generation failed');
+      console.log("try again");
+      return createTokenGeneratorTimer(forcenew, callback);
     }
-    socket1.emit('generateToken', localUserID, function (err, token) {
-      if (err) {
-        console.log('Token generation failed');
-        console.log("try again");
-        return createTokenGeneratorTimer(forcenew, callback);
-      }
-      console.log("got token",token);
-      callback(null, token);
-    });
-  };
-})();
+    console.log("received token",token);
+    callback(null, token);
+  });
+};
 
 var appID = "175240362";
 var appSecret = "Gvd126EUWQheaWQX9mwmeWIbzvs=";
