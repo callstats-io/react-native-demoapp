@@ -11,13 +11,16 @@ import {
   WebView,
   Button,
   Image,
+  TouchableHighlight,
+  Dimensions,
 } from 'react-native';
-
 
 import io from 'socket.io-client/dist/socket.io';
 import callstats from 'react-native-callstats/callstats';
 
 var socket1 = io.connect('https://demo.callstats.io', {transports: ['websocket']});
+
+var  dimensions = Dimensions.get('window');
 
 var createTokenGeneratorTimer;
 createTokenGeneratorTimer = function (forcenew, callback) {
@@ -101,6 +104,7 @@ function getLocalStream(isFront, callback) {
 }
 
 function join(roomID) {
+  console.log("joining ",roomID);
   socket1.emit('join', roomID);
   conferenceID = roomID;
 }
@@ -210,13 +214,6 @@ function leave(socketId) {
 socket1.on('connect', function(data){
   console.log("Connect ",socket1.id);
   localUserID = socket1.id;
-
-  getLocalStream(true, function(stream) {
-    localStream = stream;
-    container.setState({selfViewSrc: stream.toURL()});
-    container.setState({status: 'ready', info: 'Please enter or create room ID'});
-  });
-
   callStats.initialize(appID, tokenGenerator, localUserID);
 });
 
@@ -264,19 +261,22 @@ var RCTWebRTCDemo = React.createClass({
     return {
       info: 'Initializing',
       status: 'init',
-      roomID: '',
+      roomID: 'room',
       isFront: true,
       selfViewSrc: null,
       remoteList: {},
+      joinState: true,
     };
   },
   componentDidMount: function() {
     container = this;
   },
-  _press(event) {
-    this.refs.roomID.blur();
-    this.setState({status: 'connect', info: 'Connecting'});
-    join(this.state.roomID);
+  getLocalCameraStream() {
+    getLocalStream(true, function(stream) {
+      localStream = stream;
+      container.setState({selfViewSrc: stream.toURL()});
+      container.setState({status: 'ready', info: 'I am in room - '+container.state.roomID});
+    });
   },
   _switchVideoType() {
     const isFront = !this.state.isFront;
@@ -298,43 +298,70 @@ var RCTWebRTCDemo = React.createClass({
       }
     });
   },
+  handleJoinClick() {
+    this.setState({joinState: false});
+    this.getLocalCameraStream();
+    //this.refs.roomID.blur();
+    this.setState({status: 'connect', info: 'Connecting'});
+    join(this.state.roomID);
+  },
+  renderMainContainer() {
+    if (!this.state.joinState) {
+      return (
+        <View style={styles.container}>
+        <View style={{flexDirection: 'row', backgroundColor: '#282849'}}>
+          <Image
+            style={{width: 29, height: 30, margin:10}}
+            source={{uri: 'https://dashboard.callstats.io/static/minimal-logo.png'}}
+          />
+        </View>
+          <Text style={styles.welcome}>
+            {this.state.info}
+          </Text>
+          <View style={{flexDirection: 'row', justifyContent: 'center', margin: 10}}>
+            <RTCView streamURL={this.state.selfViewSrc} style={styles.selfView}/>
+          </View>
+          <View style={{flexDirection: 'row', justifyContent: 'center', margin: 10}}>
+            {
+              mapHash(this.state.remoteList, function(remote, index) {
+                return <RTCView key={index} streamURL={remote} style={styles.remoteView}/>
+              })
+            }
+          </View>
+        </View>
+      );
+    }
+    return null;
+  },
+  renderJoinContainer() {
+    if (this.state.joinState) {
+      return (
+        <View style={styles.joinContainer}>
+          <Image
+            style={{width: 87, height: 90, margin:10}}
+            source={{uri: 'https://dashboard.callstats.io/static/minimal-logo.png'}}
+          />
+          <Text style={styles.welcome}>
+            Enter the Room Name to Join/Create
+          </Text>
+          <TextInput style={styles.joinName}
+            placeholder={"Room Name"} placeholderTextColor={"#000"}
+            onChangeText={(text) => this.setState({roomID: text})}
+          />
+          <TouchableHighlight style={styles.joinButton}
+              onPress={this.handleJoinClick}>
+            <Text style={styles.joinButtonText}>{"Join/Create"}</Text>
+          </TouchableHighlight>
+        </View>
+      );
+    }
+    return null;
+  },
   render() {
     return (
       <View style={styles.container}>
-      <View style={{flexDirection: 'row', backgroundColor: '#282849'}}>
-        <Image
-          style={{width: 29, height: 30, margin:10}}
-          source={{uri: 'https://dashboard.callstats.io/static/minimal-logo.png'}}
-        />
-      </View>
-        <Text style={styles.welcome}>
-          {this.state.info}
-        </Text>
-        { this.state.status == 'ready' ?
-          (<View style={{flexDirection: 'row', justifyContent: 'center', margin: 10}}>
-            <TextInput
-              ref='roomID'
-              autoCorrect={false}
-              style={{width: 200, height: 40, borderColor: 'gray', borderWidth: 1, marginRight: 10}}
-              onChangeText={(text) => this.setState({roomID: text})}
-              value={this.state.roomID}
-            />
-            <Button
-              onPress={this._press}
-              title="Create/Join"
-              />
-          </View>) : null
-        }
-        <View style={{flexDirection: 'row', justifyContent: 'center', margin: 10}}>
-          <RTCView streamURL={this.state.selfViewSrc} style={styles.selfView}/>
-        </View>
-        <View style={{flexDirection: 'row', justifyContent: 'center', margin: 10}}>
-          {
-            mapHash(this.state.remoteList, function(remote, index) {
-              return <RTCView key={index} streamURL={remote} style={styles.remoteView}/>
-            })
-          }
-        </View>
+      {this.renderJoinContainer()}
+      {this.renderMainContainer()}
       </View>
     );
   }
@@ -353,16 +380,53 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#F5FCFF',
+    backgroundColor: "rgba(124, 193, 223, 0.5)",
   },
   welcome: {
     fontSize: 20,
     textAlign: 'center',
     margin: 10,
   },
+  joinContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: dimensions.width,
+    height: dimensions.height,
+    backgroundColor: "rgba(124, 193, 223, 0.5)",
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    //borderWidth: 1, borderColor: "white"
+  },
   listViewContainer: {
     height: 150,
   },
+  joinName: {
+    height: 50,
+    width: 300,
+    marginLeft: 20,
+    marginRight: 20,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#000",
+    textAlign: "center",
+    color: "black"
+  },
+  joinButton: {
+    marginTop: 10,
+    borderRadius: 5,
+    backgroundColor: "#337ab7",
+    padding: 10
+  },
+  joinButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold"
+  }
 });
+
+
+
 
 AppRegistry.registerComponent('RCTWebRTCDemo', () => RCTWebRTCDemo);
