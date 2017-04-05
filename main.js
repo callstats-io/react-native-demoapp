@@ -184,7 +184,7 @@ function createPC(socketId, isOffer) {
   };
 
   pc.onaddstream = function (event) {
-    container.setState({info: 'One peer join!'});
+    container.setState({info: 'One participant joined!'});
 
     var remoteList = container.state.remoteList;
     remoteList[socketId] = event.stream.toURL();
@@ -209,7 +209,7 @@ function leave(socketId) {
   var remoteList = container.state.remoteList;
   delete remoteList[socketId];
   container.setState({ remoteList: remoteList });
-  container.setState({info: 'One peer leave!'});
+  container.setState({info: 'One participant left!'});
 }
 
 socket1.on('connect', function(data){
