@@ -15,6 +15,7 @@ import {
   Dimensions,
 } from 'react-native';
 
+require('react-native-callstats/csio-polyfill');
 import io from 'socket.io-client/dist/socket.io';
 import callstats from 'react-native-callstats/callstats';
 
@@ -35,7 +36,7 @@ var tokenGenerator = function(forcenew, callback) {
       console.log("try again");
       return createTokenGeneratorTimer(forcenew, callback);
     }
-    console.log("received token",token);
+    console.log("received token ",token);
     callback(null, token);
   });
 };
