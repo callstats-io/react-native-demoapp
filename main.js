@@ -195,7 +195,6 @@ function createPC(socketId, isOffer) {
     console.log('onremovestream');
   };
 
-  pc.addStream(localStream);
   return pc;
 }
 
@@ -275,6 +274,10 @@ var RCTWebRTCDemo = React.createClass({
   getLocalCameraStream() {
     getLocalStream(true, function(stream) {
       localStream = stream;
+      for (const id in pcPeers) {
+        const pc = pcPeers[id];
+        pc.addStream(localStream);
+      }
       container.setState({selfViewSrc: stream.toURL()});
       container.setState({status: 'ready', info: 'I am in room - '+container.state.roomID});
     });
