@@ -195,6 +195,9 @@ function createPC(socketId, isOffer) {
     console.log('onremovestream');
   };
 
+  if (localStream) {
+    pc.addStream(localStream);
+  }
   return pc;
 }
 
