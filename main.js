@@ -1,6 +1,7 @@
 'use strict';
 
 import React, { Component } from 'react';
+import createReactClass from 'create-react-class';
 import {
   AppRegistry,
   StyleSheet,
@@ -16,8 +17,11 @@ import {
 } from 'react-native';
 
 require('react-native-callstats/csio-polyfill');
+console.log('loaded polyfill');
 import io from 'socket.io-client/dist/socket.io';
+console.log('loaded io', io);
 import callstats from 'react-native-callstats/callstats';
+console.log('loaded callstats', callstats);
 
 var socket1 = io.connect('https://demo.callstats.io', {transports: ['websocket']});
 
@@ -27,7 +31,6 @@ var createTokenGeneratorTimer;
 createTokenGeneratorTimer = function (forcenew, callback) {
    return setTimeout(function () { console.log("calling tokenGenerator"); tokenGenerator(forcenew, callback);}, 100);
 };
-
 
 var tokenGenerator = function(forcenew, callback) {
   socket1.emit('generateToken', localUserID, function (err, token) {
@@ -45,8 +48,24 @@ var appID = "";
 var appSecret = "";
 var localUserID;
 var conferenceID;
+var seed = 1;
+var getWifiStats = function() {
+  var wifistats = {
+    quality: 80,
+    signal: 20,
+  }
+  return new Promise(function(resolve, reject) {
+    seed++;
+    wifistats.signal = wifistats.signal + seed;
+    resolve(JSON.stringify(wifistats));
+  });
+}
 
+console.log("creating callstats ");
 var callStats = new callstats();
+if (callStats.attachWifiStatsHandler) {
+  callStats.attachWifiStatsHandler(getWifiStats);
+}
 var fabricUsage = callStats.fabricUsage.multiplex;
 
 import {
@@ -110,6 +129,30 @@ function join(roomID) {
   conferenceID = roomID;
 }
 
+// var url = "https://192.168.99.100:3300/status";
+//
+// var sendXMLHttpGetRequest =  function (url) {
+//   console.log("sendXMLHttpGetRequest 123",url);
+//   var requestExecutionTime = null;
+//   var xhr = new XMLHttpRequest();
+//   xhr.timeout = 5000;
+//   if (xhr) {
+//     xhr.open('GET', encodeURI(url));
+//     xhr.onload = function () {
+//       console.log("Response is ",xhr.responseText);
+//     };
+//     xhr.onerror = function () {
+//       console.log("Error is ",xhr.status);
+//     };
+//     xhr.ontimeout = function () {
+//       console.log("timeout ",xhr.status);
+//     };
+//     xhr.send();
+//   }
+// };
+//
+// sendXMLHttpGetRequest(url);
+
 /**
  * Receive details from another user
  */
@@ -140,11 +183,17 @@ function handleUserMessage(userId, message) {
 
 
 function createPC(socketId, isOffer) {
+  var error = {
+    message: "creating pc for "+socketId,
+    error: "Info",
+    stack: "Info Info Info"
+  };
   console.log("creating pc for ",socketId);
   var pc = new RTCPeerConnection(configuration);
   callStats.addNewFabric(pc, socketId ,fabricUsage, conferenceID);
   pcPeers[socketId] = pc;
-
+  callStats.reportError(pc, conferenceID,callStats.webRTCFunctions.applicationError,"Report error");
+  callStats.reportError(pc, conferenceID,callStats.webRTCFunctions.applicationError,error);
   pc.onicecandidate = function (event) {
     //console.log('onicecandidate');
     if (event.candidate) {
@@ -214,10 +263,13 @@ function leave(socketId) {
   container.setState({info: 'One participant left!'});
 }
 
+function cscallback(msg, status) {
+  console.log('cscallback ',msg, status);
+}
 socket1.on('connect', function(data){
   console.log("Connect ",socket1.id);
   localUserID = socket1.id;
-  callStats.initialize(appID, tokenGenerator, localUserID);
+  callStats.initialize(appID, appSecret, localUserID, cscallback);
 });
 
 socket1.on('join', function(userID){
@@ -258,7 +310,7 @@ function getStats() {
 
 var container;
 
-var RCTWebRTCDemo = React.createClass({
+var RCTWebRTCDemo = createReactClass({
   getInitialState: function() {
     this.ds = new ListView.DataSource({rowHasChanged: (r1, r2) => true});
     return {
