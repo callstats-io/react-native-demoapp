@@ -44,8 +44,8 @@ var tokenGenerator = function(forcenew, callback) {
   });
 };
 
-var appID = "";
-var appSecret = "";
+var appID = "619077833";
+var appSecret = "i8KFFRf0QoVj:HiFdChCpzodhs5OvrfZicqA31TgGlYMAcucmRZ4j/jA=";
 var localUserID;
 var conferenceID;
 var seed = 1;
@@ -76,6 +76,7 @@ import {
   RTCView,
   MediaStreamTrack,
   getUserMedia,
+  mediaDevices,
 } from 'react-native-webrtc';
 
 
@@ -98,15 +99,15 @@ var pcPeers = {};
 var localStream;
 
 function getLocalStream(isFront, callback) {
-  MediaStreamTrack.getSources(sourceInfos => {
-    var videoSourceId;
-    for (var i = 0; i < sourceInfos.length; i++) {
-      var sourceInfo = sourceInfos[i];
+  mediaDevices.enumerateDevices().then(sourceInfos => {
+    let videoSourceId;
+    for (let i = 0; i < sourceInfos.length; i++) {
+      const sourceInfo = sourceInfos[i];
       if(sourceInfo.kind == "video" && sourceInfo.facing == (isFront ? "front" : "back")) {
         videoSourceId = sourceInfo.id;
       }
     }
-    getUserMedia({
+    mediaDevices.getUserMedia({
       audio: true,
       video: {
         mandatory: {
@@ -117,9 +118,13 @@ function getLocalStream(isFront, callback) {
         facingMode: (isFront ? "user" : "environment"),
         optional: (videoSourceId ? [{sourceId: videoSourceId}] : [])
       }
-    }, function (stream) {
+    })
+    .then(stream => {
       callback(stream);
-    }, logError);
+    })
+    .catch(error => {
+      // Log error
+    });
   });
 }
 
@@ -128,30 +133,6 @@ function join(roomID) {
   socket1.emit('join', roomID);
   conferenceID = roomID;
 }
-
-// var url = "https://192.168.99.100:3300/status";
-//
-// var sendXMLHttpGetRequest =  function (url) {
-//   console.log("sendXMLHttpGetRequest 123",url);
-//   var requestExecutionTime = null;
-//   var xhr = new XMLHttpRequest();
-//   xhr.timeout = 5000;
-//   if (xhr) {
-//     xhr.open('GET', encodeURI(url));
-//     xhr.onload = function () {
-//       console.log("Response is ",xhr.responseText);
-//     };
-//     xhr.onerror = function () {
-//       console.log("Error is ",xhr.status);
-//     };
-//     xhr.ontimeout = function () {
-//       console.log("timeout ",xhr.status);
-//     };
-//     xhr.send();
-//   }
-// };
-//
-// sendXMLHttpGetRequest(url);
 
 /**
  * Receive details from another user
@@ -168,16 +149,29 @@ function handleUserMessage(userId, message) {
     pc.addIceCandidate(new RTCIceCandidate(json.ice));
   }
   if (json.offer) {
-    pc.setRemoteDescription(new RTCSessionDescription(json.offer), function () {
-      if (pc.remoteDescription.type == "offer")
-        pc.createAnswer(function(desc) {
-          pc.setLocalDescription(desc, function () {
+    pc.setRemoteDescription(new RTCSessionDescription(json.offer))
+    .then(() => {
+      if (pc.remoteDescription.type == "offer") {
+        pc.createAnswer()
+        .then(desc => {
+          pc.setLocalDescription(desc)
+          .then(() => {
             var json = {'offer': pc.localDescription};
             var str = JSON.stringify(json);
             socket1.emit('message', userId, str);
-          }, logError);
-        }, logError);
-    }, logError);
+          })
+          .catch(error => {
+            console.log('setLocalDescription error ', error);
+          });
+        })
+        .catch(error => {
+          console.log('createAnswer error ', error);
+        });
+      }
+    })
+    .catch(error => {
+      console.log('setRemoteDescription error ', error);
+    });
   }
 }
 
@@ -205,16 +199,21 @@ function createPC(socketId, isOffer) {
   };
 
   function createOffer() {
-    pc.createOffer(function(desc) {
-      //console.log('createOffer', desc);
-      pc.setLocalDescription(desc, function () {
-        //console.log('setLocalDescription', pc.localDescription);
-        //socket.emit('exchange', {'to': socketId, 'sdp': pc.localDescription });
+    pc.createOffer()
+    .then(desc => {
+      pc.setLocalDescription(desc)
+      .then(() => {
         var json = {'offer': pc.localDescription};
         var str = JSON.stringify(json);
         socket1.emit('message', socketId, str);
-      }, logError);
-    }, logError);
+      })
+      .catch(error => {
+        console.log('setLocalDescription error', error);
+      });
+    })
+    .catch(error => {
+      console.log('createOffer error', error);
+    });
   }
 
   pc.onnegotiationneeded = function () {
@@ -238,6 +237,7 @@ function createPC(socketId, isOffer) {
     var remoteList = container.state.remoteList;
     remoteList[socketId] = event.stream.toURL();
     container.setState({ remoteList: remoteList });
+    getStats();
   };
 
   pc.onremovestream = function (event) {
@@ -267,8 +267,9 @@ function cscallback(msg, status) {
   console.log('cscallback ',msg, status);
 }
 socket1.on('connect', function(data){
-  console.log("Connect ",socket1.id);
+  console.log("Connect 123",socket1.id);
   localUserID = socket1.id;
+  console.log("init ", appID, appSecret);
   callStats.initialize(appID, appSecret, localUserID, cscallback);
 });
 
@@ -300,11 +301,11 @@ function mapHash(hash, func) {
 }
 
 function getStats() {
+  console.log('calling getstats');
   var pc = pcPeers[Object.keys(pcPeers)[0]];
-  pc.getStats(null, function(report) {
-    function onFabricStats(stats) {
-      console.log('getStats report', stats);
-    }
+  pc.getStats()
+  .then(stats => {
+    console.log('stats from getStats ', stats);
   });
 }
 
