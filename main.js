@@ -44,8 +44,8 @@ var tokenGenerator = function(forcenew, callback) {
   });
 };
 
-var appID = "619077833";
-var appSecret = "i8KFFRf0QoVj:HiFdChCpzodhs5OvrfZicqA31TgGlYMAcucmRZ4j/jA=";
+var appID = "";
+var appSecret = "";
 var localUserID;
 var conferenceID;
 var seed = 1;
